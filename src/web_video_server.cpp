@@ -15,6 +15,8 @@
 #include "web_video_server/vp9_streamer.h"
 #include "async_web_server_cpp/http_reply.hpp"
 
+#include "rclcpp_components/register_node_macro.hpp"
+
 using namespace std::chrono_literals;
 
 namespace web_video_server
@@ -48,10 +50,53 @@ static bool ros_connection_logger(async_web_server_cpp::HttpServerRequestHandler
   return false;
 }
 
+
 WebVideoServer::WebVideoServer(rclcpp::Node::SharedPtr &nh, rclcpp::Node::SharedPtr &private_nh) :
-    nh_(nh), handler_group_(
+    handler_group_(
         async_web_server_cpp::HttpReply::stock_reply(async_web_server_cpp::HttpReply::not_found))
 {
+  stream_types_["mjpeg"] = boost::shared_ptr<ImageStreamerType>(new MjpegStreamerType());
+  stream_types_["png"] = boost::shared_ptr<ImageStreamerType>(new PngStreamerType());
+  stream_types_["ros_compressed"] = boost::shared_ptr<ImageStreamerType>(new RosCompressedStreamerType());
+  stream_types_["vp8"] = boost::shared_ptr<ImageStreamerType>(new Vp8StreamerType());
+  stream_types_["h264"] = boost::shared_ptr<ImageStreamerType>(new H264StreamerType());
+  stream_types_["vp9"] = boost::shared_ptr<ImageStreamerType>(new Vp9StreamerType());
+
+  handler_group_.addHandlerForPath("/", boost::bind(&WebVideoServer::handle_list_streams, this, _1, _2, _3, _4));
+  handler_group_.addHandlerForPath("/stream", boost::bind(&WebVideoServer::handle_stream, this, _1, _2, _3, _4));
+  handler_group_.addHandlerForPath("/stream_viewer",
+                                   boost::bind(&WebVideoServer::handle_stream_viewer, this, _1, _2, _3, _4));
+  handler_group_.addHandlerForPath("/snapshot", boost::bind(&WebVideoServer::handle_snapshot, this, _1, _2, _3, _4));
+  
+  // initialize
+  initialize(nh, private_nh);
+}
+
+WebVideoServer::WebVideoServer() :
+    handler_group_(
+        async_web_server_cpp::HttpReply::stock_reply(async_web_server_cpp::HttpReply::not_found))
+{
+  stream_types_["mjpeg"] = boost::shared_ptr<ImageStreamerType>(new MjpegStreamerType());
+  stream_types_["png"] = boost::shared_ptr<ImageStreamerType>(new PngStreamerType());
+  stream_types_["ros_compressed"] = boost::shared_ptr<ImageStreamerType>(new RosCompressedStreamerType());
+  stream_types_["vp8"] = boost::shared_ptr<ImageStreamerType>(new Vp8StreamerType());
+  stream_types_["h264"] = boost::shared_ptr<ImageStreamerType>(new H264StreamerType());
+  stream_types_["vp9"] = boost::shared_ptr<ImageStreamerType>(new Vp9StreamerType());
+
+  handler_group_.addHandlerForPath("/", boost::bind(&WebVideoServer::handle_list_streams, this, _1, _2, _3, _4));
+  handler_group_.addHandlerForPath("/stream", boost::bind(&WebVideoServer::handle_stream, this, _1, _2, _3, _4));
+  handler_group_.addHandlerForPath("/stream_viewer",
+                                   boost::bind(&WebVideoServer::handle_stream_viewer, this, _1, _2, _3, _4));
+  handler_group_.addHandlerForPath("/snapshot", boost::bind(&WebVideoServer::handle_snapshot, this, _1, _2, _3, _4));
+}
+
+WebVideoServer::~WebVideoServer()
+{
+}
+
+void WebVideoServer::initialize(rclcpp::Node::SharedPtr nh, rclcpp::Node::SharedPtr private_nh)
+{
+  nh_ = nh;
   rclcpp::Parameter parameter;
   if (private_nh->get_parameter("port", parameter)) {
     port_ = parameter.as_int();
@@ -93,20 +138,7 @@ WebVideoServer::WebVideoServer(rclcpp::Node::SharedPtr &nh, rclcpp::Node::Shared
   } else {
     __default_stream_type = "mjpeg";
   }
-
-  stream_types_["mjpeg"] = boost::shared_ptr<ImageStreamerType>(new MjpegStreamerType());
-  stream_types_["png"] = boost::shared_ptr<ImageStreamerType>(new PngStreamerType());
-  stream_types_["ros_compressed"] = boost::shared_ptr<ImageStreamerType>(new RosCompressedStreamerType());
-  stream_types_["vp8"] = boost::shared_ptr<ImageStreamerType>(new Vp8StreamerType());
-  stream_types_["h264"] = boost::shared_ptr<ImageStreamerType>(new H264StreamerType());
-  stream_types_["vp9"] = boost::shared_ptr<ImageStreamerType>(new Vp9StreamerType());
-
-  handler_group_.addHandlerForPath("/", boost::bind(&WebVideoServer::handle_list_streams, this, _1, _2, _3, _4));
-  handler_group_.addHandlerForPath("/stream", boost::bind(&WebVideoServer::handle_stream, this, _1, _2, _3, _4));
-  handler_group_.addHandlerForPath("/stream_viewer",
-                                   boost::bind(&WebVideoServer::handle_stream_viewer, this, _1, _2, _3, _4));
-  handler_group_.addHandlerForPath("/snapshot", boost::bind(&WebVideoServer::handle_snapshot, this, _1, _2, _3, _4));
-
+  
   try
   {
     server_.reset(
@@ -119,10 +151,6 @@ WebVideoServer::WebVideoServer(rclcpp::Node::SharedPtr &nh, rclcpp::Node::Shared
     RCLCPP_ERROR(nh_->get_logger(), "Exception when creating the web server! %s:%d", address_.c_str(), port_);
     throw;
   }
-}
-
-WebVideoServer::~WebVideoServer()
-{
 }
 
 void WebVideoServer::setup_cleanup_inactive_streams()
@@ -372,17 +400,15 @@ bool WebVideoServer::handle_list_streams(const async_web_server_cpp::HttpRequest
   return true;
 }
 
-}
-
-int main(int argc, char **argv)
+ComposableWebVideoServer::ComposableWebVideoServer(rclcpp::NodeOptions const & options) :
+    Node("composable_web_video_server", options)
 {
-  rclcpp::init(argc, argv);
-  auto nh = std::make_shared<rclcpp::Node>("web_video_server");
-  auto private_nh = std::make_shared<rclcpp::Node>("_web_video_server");
-
-  web_video_server::WebVideoServer server(nh, private_nh);
-  server.setup_cleanup_inactive_streams();
-  server.spin();
-
-  return (0);
 }
+
+ComposableWebVideoServer::~ComposableWebVideoServer()
+{
+}
+
+}
+
+RCLCPP_COMPONENTS_REGISTER_NODE(web_video_server::ComposableWebVideoServer)
