@@ -3,7 +3,6 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <cv_bridge/cv_bridge.h>
-#include <memory>
 #include <vector>
 #include "web_video_server/image_streamer.h"
 #include "async_web_server_cpp/http_server.hpp"
