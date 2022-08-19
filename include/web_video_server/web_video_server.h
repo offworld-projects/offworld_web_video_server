@@ -24,11 +24,14 @@ public:
    * @return
    */
   WebVideoServer(rclcpp::Node::SharedPtr &nh, rclcpp::Node::SharedPtr &private_nh);
-
+  
+  WebVideoServer();
   /**
    * @brief  Destructor - Cleans up
    */
   virtual ~WebVideoServer();
+
+  void initialize(rclcpp::Node::SharedPtr nh, rclcpp::Node::SharedPtr private_nh);
 
   /**
    * @brief  Starts the server and spins
@@ -49,7 +52,7 @@ public:
   bool handle_list_streams(const async_web_server_cpp::HttpRequest &request,
                            async_web_server_cpp::HttpConnectionPtr connection, const char* begin, const char* end);
 
-private:
+protected:
   void restreamFrames(double max_age);
   void cleanup_inactive_streams();
 
@@ -67,6 +70,27 @@ private:
   boost::mutex subscriber_mutex_;
 };
 
-}
+/**
+ * @class ComposableWebVideoServer
+ * @brief
+ */
+class ComposableWebVideoServer :
+    public rclcpp::Node
+  , public WebVideoServer
+{
+public:
+  /**
+   * @brief  Constructor
+   * @return
+   */
+  explicit ComposableWebVideoServer(rclcpp::NodeOptions const & options);
 
+  /**
+   * @brief  Destructor - Cleans up
+   */
+  virtual ~ComposableWebVideoServer();
+
+};
+
+}
 #endif
