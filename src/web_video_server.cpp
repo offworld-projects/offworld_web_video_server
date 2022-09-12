@@ -97,47 +97,38 @@ WebVideoServer::~WebVideoServer()
 void WebVideoServer::initialize(rclcpp::Node::SharedPtr nh, rclcpp::Node::SharedPtr private_nh)
 {
   nh_ = nh;
-  rclcpp::Parameter parameter;
-  if (private_nh->get_parameter("port", parameter)) {
-    port_ = parameter.as_int();
-  } else {
-    port_ = 8080;
-  }
-  if (private_nh->get_parameter("verbose", parameter)) {
-    __verbose = parameter.as_bool();
-  } else {
-    __verbose = true;
-  }
+  
+  nh->declare_parameter("port", 8080);
+  nh->declare_parameter("verbose", false);
+  nh->declare_parameter("address", "0.0.0.0");
+  nh->declare_parameter("server_threads", 1);
+  nh->declare_parameter("ros_threads", 2);
+  nh->declare_parameter("publish_rate", -1.0);
+  nh->declare_parameter("default_stream_type", "mjpeg");
 
-  if (private_nh->get_parameter("address", parameter)) {
-    address_ = parameter.as_string();
-  } else {
-    address_ = "0.0.0.0";
-  }
+  rclcpp::Parameter parameter;
+  
+  nh->get_parameter("port", parameter);
+  port_ = parameter.as_int();
+  
+  nh->get_parameter("verbose", parameter);
+  __verbose = parameter.as_bool();
+
+  nh->get_parameter("address", parameter);
+  address_ = parameter.as_string();
 
   int server_threads;
-  if (private_nh->get_parameter("server_threads", parameter)) {
-    server_threads = parameter.as_int();
-  } else {
-    server_threads = 1;
-  }
+  nh->get_parameter("server_threads", parameter);
+  server_threads = parameter.as_int();
 
-  if (private_nh->get_parameter("ros_threads", parameter)) {
-    ros_threads_ = parameter.as_int();
-  } else {
-    ros_threads_ = 2;
-  }
-  if (private_nh->get_parameter("publish_rate", parameter)) {
-    publish_rate_ = parameter.as_double();
-  } else {
-    publish_rate_ = -1.0;
-  }
+  nh->get_parameter("ros_threads", parameter);
+  ros_threads_ = parameter.as_int();
+  
+  nh->get_parameter("publish_rate", parameter);
+  publish_rate_ = parameter.as_double();
 
-  if (private_nh->get_parameter("default_stream_type", parameter)) {
-    __default_stream_type = parameter.as_string();
-  } else {
-    __default_stream_type = "mjpeg";
-  }
+  nh->get_parameter("default_stream_type", parameter);
+  __default_stream_type = parameter.as_string();
   
   try
   {
