@@ -60,6 +60,7 @@ protected:
   rclcpp::WallTimer<rclcpp::VoidCallbackType>::SharedPtr cleanup_timer_;
   int ros_threads_;
   double publish_rate_;
+  std::vector<std::string> advertise_topics_;
   int port_;
   std::string address_;
   boost::shared_ptr<async_web_server_cpp::HttpServer> server_;

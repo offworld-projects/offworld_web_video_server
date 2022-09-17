@@ -105,6 +105,7 @@ void WebVideoServer::initialize(rclcpp::Node::SharedPtr nh, rclcpp::Node::Shared
   nh->declare_parameter("ros_threads", 2);
   nh->declare_parameter("publish_rate", -1.0);
   nh->declare_parameter("default_stream_type", "mjpeg");
+  nh->declare_parameter("advertise_topics", std::vector<std::string>());
 
   rclcpp::Parameter parameter;
   
@@ -129,7 +130,10 @@ void WebVideoServer::initialize(rclcpp::Node::SharedPtr nh, rclcpp::Node::Shared
 
   nh->get_parameter("default_stream_type", parameter);
   __default_stream_type = parameter.as_string();
-  
+
+  nh->get_parameter("advertise_topics", parameter);
+  advertise_topics_ = parameter.as_string_array();
+
   try
   {
     server_.reset(
@@ -202,6 +206,16 @@ bool WebVideoServer::handle_stream(const async_web_server_cpp::HttpRequest &requ
   if (stream_types_.find(type) != stream_types_.end())
   {
     std::string topic = request.get_query_param_value_or_default("topic", "");
+    if (advertise_topics_.size() > 0 &&
+        std::find_if(advertise_topics_.begin(),
+          advertise_topics_.end(),
+          [topic](const std::string& at) {
+            return topic.find(at) != std::string::npos;
+        }) == advertise_topics_.end()) {
+      async_web_server_cpp::HttpReply::stock_reply(async_web_server_cpp::HttpReply::not_found)(
+          request, connection, begin, end);
+      return true;
+    }
     // Fallback for topics without corresponding compressed topics
     if (type == std::string("ros_compressed"))
     {
@@ -242,6 +256,17 @@ bool WebVideoServer::handle_snapshot(const async_web_server_cpp::HttpRequest &re
                                      async_web_server_cpp::HttpConnectionPtr connection, const char* begin,
                                      const char* end)
 {
+  std::string topic = request.get_query_param_value_or_default("topic", "");
+  if (advertise_topics_.size() > 0 &&
+      std::find_if(advertise_topics_.begin(),
+        advertise_topics_.end(),
+        [topic](const std::string& at) {
+          return topic.find(at) != std::string::npos;
+      }) == advertise_topics_.end()) {
+    async_web_server_cpp::HttpReply::stock_reply(async_web_server_cpp::HttpReply::not_found)(
+        request, connection, begin, end);
+    return true;
+  }
   boost::shared_ptr<ImageStreamer> streamer(new JpegSnapshotStreamer(request, connection, nh_));
   streamer->start();
 
@@ -258,6 +283,16 @@ bool WebVideoServer::handle_stream_viewer(const async_web_server_cpp::HttpReques
   if (stream_types_.find(type) != stream_types_.end())
   {
     std::string topic = request.get_query_param_value_or_default("topic", "");
+    if (advertise_topics_.size() > 0 &&
+        std::find_if(advertise_topics_.begin(),
+          advertise_topics_.end(),
+          [topic](const std::string& at) {
+            return topic.find(at) != std::string::npos;
+        }) == advertise_topics_.end()) {
+      async_web_server_cpp::HttpReply::stock_reply(async_web_server_cpp::HttpReply::not_found)(
+          request, connection, begin, end);
+      return true;
+    }
     // Fallback for topics without corresponding compressed topics
     if (type == std::string("ros_compressed"))
     {
@@ -316,7 +351,8 @@ bool WebVideoServer::handle_list_streams(const async_web_server_cpp::HttpRequest
     auto & topic_name = topic_and_types.first;
     auto & topic_type = topic_and_types.second[0];  // explicitly take the first
     // TODO debugging
-    fprintf(stderr, "topic_type: %s\n", topic_type.c_str());
+    RCLCPP_DEBUG(nh_->get_logger(), "topic_name: %s\n", topic_name.c_str());
+    RCLCPP_DEBUG(nh_->get_logger(), "topic_type: %s\n", topic_type.c_str());
     if (topic_type == "sensor_msgs/msg/Image")
     {
       image_topics.push_back(topic_name);
@@ -341,6 +377,12 @@ bool WebVideoServer::handle_list_streams(const async_web_server_cpp::HttpRequest
     if (boost::algorithm::ends_with(camera_info_topic, "/camera_info"))
     {
       std::string base_topic = camera_info_topic.substr(0, camera_info_topic.size() - strlen("camera_info"));
+      if (advertise_topics_.size() > 0 &&
+          std::find(advertise_topics_.begin(),
+            advertise_topics_.end(),
+            base_topic.substr(1, base_topic.size()-2)) == advertise_topics_.end()) {
+        continue;
+      }
       connection->write("<li>");
       connection->write(base_topic);
       connection->write("<ul>");
@@ -375,6 +417,15 @@ bool WebVideoServer::handle_list_streams(const async_web_server_cpp::HttpRequest
   connection->write("<ul>");
   std::vector<std::string>::iterator image_topic_itr = image_topics.begin();
   for (; image_topic_itr != image_topics.end();) {
+    if (advertise_topics_.size() > 0 &&
+        std::find_if(advertise_topics_.begin(),
+          advertise_topics_.end(),
+          [image_topic_itr](const std::string& at) {
+            return (*image_topic_itr).find(at) != std::string::npos;
+        }) == advertise_topics_.end()) {
+      image_topic_itr = image_topics.erase(image_topic_itr);
+      continue;
+    }
     connection->write("<li><a href=\"/stream_viewer?topic=");
     connection->write(*image_topic_itr);
     connection->write("\">");
