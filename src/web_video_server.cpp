@@ -103,7 +103,7 @@ void WebVideoServer::initialize(rclcpp::Node::SharedPtr nh, rclcpp::Node::Shared
   nh->declare_parameter("address", "0.0.0.0");
   nh->declare_parameter("server_threads", 1);
   nh->declare_parameter("ros_threads", 2);
-  nh->declare_parameter("publish_rate", -1.0);
+  nh->declare_parameter("publish_rate", -1);
   nh->declare_parameter("default_stream_type", "mjpeg");
   nh->declare_parameter("advertise_topics", std::vector<std::string>());
 
@@ -126,7 +126,7 @@ void WebVideoServer::initialize(rclcpp::Node::SharedPtr nh, rclcpp::Node::Shared
   ros_threads_ = parameter.as_int();
   
   nh->get_parameter("publish_rate", parameter);
-  publish_rate_ = parameter.as_double();
+  publish_rate_ = parameter.as_int();
 
   nh->get_parameter("default_stream_type", parameter);
   __default_stream_type = parameter.as_string();
@@ -159,11 +159,25 @@ void WebVideoServer::spin()
   server_->run();
   RCLCPP_INFO(nh_->get_logger(), "Waiting For connections on %s:%d", address_.c_str(), port_);
   rclcpp::executors::MultiThreadedExecutor spinner(rclcpp::ExecutorOptions(), ros_threads_);
-  spinner.add_node(nh_);
   if ( publish_rate_ > 0 ) {
-    nh_->create_wall_timer(1s / publish_rate_, [this](){restreamFrames(1.0 / publish_rate_);});
+    RCLCPP_INFO(nh_->get_logger(), "Setting streaming frame rate to %d fps \n", publish_rate_);
+    RCLCPP_WARN(nh_->get_logger(), "It is recommended to only use the \"publish_rate\" input parameter when streaming from a single camera source");
+    double const publish_period_sec = 1.0 / static_cast<double>(publish_rate_);
+    auto const pub_period_duration = rclcpp::Duration::from_seconds(publish_period_sec);
+    while (rclcpp::ok()) {
+      auto const before = nh_->get_clock()->now();
+      spinner.spin_node_once(nh_, std::chrono::milliseconds(static_cast<uint32_t>(1000*publish_period_sec)));
+      auto const after = nh_->get_clock()->now();
+      rclcpp::Duration const duration = after - before;
+      if (duration < pub_period_duration) {
+        auto const sleep_duration = (pub_period_duration - duration).to_chrono<std::chrono::milliseconds>();
+        rclcpp::sleep_for(sleep_duration);
+      }
+    }
+  } else {
+    spinner.add_node(nh_);
+    spinner.spin();
   }
-  spinner.spin();
   server_->stop();
 }
 
