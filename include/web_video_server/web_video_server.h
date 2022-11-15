@@ -59,7 +59,6 @@ protected:
   rclcpp::Node::SharedPtr nh_;
   rclcpp::WallTimer<rclcpp::VoidCallbackType>::SharedPtr cleanup_timer_;
   int ros_threads_;
-  int publish_rate_;
   std::vector<std::string> advertise_topics_;
   int port_;
   std::string address_;
