@@ -18,12 +18,18 @@ ImageStreamer::~ImageStreamer()
 
 ImageTransportImageStreamer::ImageTransportImageStreamer(const async_web_server_cpp::HttpRequest &request,
                              async_web_server_cpp::HttpConnectionPtr connection, rclcpp::Node::SharedPtr nh) :
-  ImageStreamer(request, connection, nh), it_(nh), initialized_(false)
+  ImageStreamer(request, connection, nh), it_(nh), initialized_(false),
+  publish_period_duration_(rclcpp::Duration::from_seconds( 0 ))
 {
   output_width_ = request.get_query_param_value_or_default<int>("width", -1);
   output_height_ = request.get_query_param_value_or_default<int>("height", -1);
   invert_ = request.has_query_param("invert");
   default_transport_ = request.get_query_param_value_or_default("default_transport", "raw");
+  int const rate = request.get_query_param_value_or_default("rate", -1);
+  if (rate > 0) {
+    publish_period_duration_ = rclcpp::Duration::from_seconds( 1. / static_cast<double>(rate) );
+  }
+  last_frame = nh_->now();
 }
 
 ImageTransportImageStreamer::~ImageTransportImageStreamer()
@@ -148,6 +154,12 @@ void ImageTransportImageStreamer::imageCallback(const sensor_msgs::msg::Image::C
       initialized_ = true;
     }
 
+    auto const current_frame = nh_->now();
+    rclcpp::Duration const duration = current_frame - last_frame;
+    if (duration < publish_period_duration_) {
+      auto const sleep_duration = (publish_period_duration_ - duration).to_chrono<std::chrono::milliseconds>();
+      rclcpp::sleep_for(sleep_duration);
+    }
     last_frame = nh_->now();
     sendImage(output_size_image, last_frame );
 

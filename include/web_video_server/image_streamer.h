@@ -66,6 +66,7 @@ protected:
   int output_height_;
   bool invert_;
   std::string default_transport_;
+  rclcpp::Duration publish_period_duration_;
 
   rclcpp::Time last_frame;
   cv::Mat output_size_image;
