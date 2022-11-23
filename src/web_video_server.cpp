@@ -92,6 +92,9 @@ WebVideoServer::WebVideoServer() :
 
 WebVideoServer::~WebVideoServer()
 {
+  if (server_) {
+    server_->stop();
+  }
 }
 
 void WebVideoServer::initialize(rclcpp::Node::SharedPtr nh, rclcpp::Node::SharedPtr private_nh)
@@ -142,6 +145,9 @@ void WebVideoServer::initialize(rclcpp::Node::SharedPtr nh, rclcpp::Node::Shared
     RCLCPP_ERROR(nh_->get_logger(), "Exception when creating the web server! %s:%d", address_.c_str(), port_);
     throw;
   }
+
+  server_->run();
+  RCLCPP_INFO(nh_->get_logger(), "Waiting For connections on %s:%d", address_.c_str(), port_);
 }
 
 void WebVideoServer::setup_cleanup_inactive_streams()
@@ -150,14 +156,16 @@ void WebVideoServer::setup_cleanup_inactive_streams()
   cleanup_timer_ = nh_->create_wall_timer(500ms, callback);
 }
 
+int WebVideoServer::get_ros_threads() const
+{
+  return ros_threads_;
+}
+
 void WebVideoServer::spin()
 {
-  server_->run();
-  RCLCPP_INFO(nh_->get_logger(), "Waiting For connections on %s:%d", address_.c_str(), port_);
   rclcpp::executors::MultiThreadedExecutor spinner(rclcpp::ExecutorOptions(), ros_threads_);
   spinner.add_node(nh_);
   spinner.spin();
-  server_->stop();
 }
 
 void WebVideoServer::restreamFrames( double max_age )
