@@ -40,6 +40,8 @@ public:
 
   void setup_cleanup_inactive_streams();
 
+  int get_ros_threads();
+
   bool handle_stream(const async_web_server_cpp::HttpRequest &request,
                      async_web_server_cpp::HttpConnectionPtr connection, const char* begin, const char* end);
 
@@ -68,6 +70,7 @@ protected:
   std::vector<boost::shared_ptr<ImageStreamer> > image_subscribers_;
   std::map<std::string, boost::shared_ptr<ImageStreamerType> > stream_types_;
   boost::mutex subscriber_mutex_;
+  rclcpp::executors::MultiThreadedExecutor::SharedPtr spinner_;
 };
 
 /**
