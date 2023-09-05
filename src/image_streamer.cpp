@@ -114,6 +114,11 @@ void ImageTransportImageStreamer::imageCallback(const sensor_msgs::msg::Image::C
       }
       img = float_image;
     }
+    else if (msg->encoding == "16UC1")
+    {
+      cv::Mat depth_image = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_16UC1)->image;
+      img = depth_image;
+    }
     else
     {
       // Convert to OpenCV native BGR color

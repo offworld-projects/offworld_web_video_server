@@ -268,7 +268,7 @@ bool WebVideoServer::handle_snapshot(const async_web_server_cpp::HttpRequest &re
         request, connection, begin, end);
     return true;
   }
-  boost::shared_ptr<ImageStreamer> streamer(new JpegSnapshotStreamer(request, connection, nh_));
+  boost::shared_ptr<ImageStreamer> streamer(new PngSnapshotStreamer(request, connection, nh_));
   streamer->start();
 
   boost::mutex::scoped_lock lock(subscriber_mutex_);
